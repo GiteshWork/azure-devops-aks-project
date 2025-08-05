@@ -1,0 +1,44 @@
+# This pipeline builds and pushes a Docker image to Azure Container Registry.
+
+trigger:
+  branches:
+    include:
+    - master  # Trigger the pipeline on changes to the main branch
+  paths:
+    include:
+    - 'app/backend/*'
+
+resources:
+- repo: self
+
+variables:
+  azureSubscription: 'Azure-Subscription-Connection'
+  acrLoginServer: 'mywebappacrhelpfulaphid.azurecr.io' 
+  acrRepository: 'backend-api'
+  dockerfilePath: 'app/backend/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build and Push Docker Image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    # 1. Login to Azure Container Registry
+    - task: AzureCLI@2
+      displayName: 'Login to ACR'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az acr login --name $(acrLoginServer)
+
+    # 2. Build and Push the Docker image
+    - script: |
+        docker build -t $(acrLoginServer)/$(acrRepository):$(tag) -f $(dockerfilePath) app/backend
+        docker push $(acrLoginServer)/$(acrRepository):$(tag)
+      displayName: 'Build and Push Docker Image'
